@@ -6,7 +6,7 @@ from a_selenium_iframes_crawler import Iframes
 from flatten_any_dict_iterable_or_whatsoever import fla_tu
 from kthread_sleep import sleep
 import undetected_chromedriver as uc
-from passprotecttxt import encrypt_text
+from passprotecttxt import encrypt_text, decrypt_text
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
@@ -20,14 +20,17 @@ def _get_text_with_requests(doclink):
     resultreq = ""
     for x in allscripts:
         if "DOCS_modelChunk = " in x.text:
-            e = str(x.next_element)
-            ef = re.findall(r"\[.*\]", e)
-            eff = json.loads(ef[0])
-            resultreq = [q[0] for q in (fla_tu(eff)) if "s" in q[-1]][0]
+            try:
+                e = str(x.next_element)
+                ef = re.findall(r"\[.*\]", e)
+                eff = json.loads(ef[0])
+                resultreq = [q[0] for q in (fla_tu(eff)) if "s" in q[-1]][0]
+            except Exception:
+                continue
     return resultreq
 
 
-def update_text(text, password, doclink, **kwargs):
+def update_text(text, password, doclink,keep_old=False,sep_old='Ç', **kwargs):
     """
     Updates the text content in a Google Docs document using Selenium and encrypts the new text.
 
@@ -58,7 +61,6 @@ def update_text(text, password, doclink, **kwargs):
     """
     driver = uc.Chrome(headless=True, **kwargs)
     driver.get(doclink)
-    newtext = encrypt_text(text, password)
     getiframes = lambda: Iframes(
         driver,
         By,
@@ -68,7 +70,13 @@ def update_text(text, password, doclink, **kwargs):
         ignore_google_ads=True,
     )
 
-    resultreq = _get_text_with_requests(doclink)
+    try:
+        resultreq = decrypt_text(_get_text_with_requests(doclink),password=password)
+    except Exception:
+        resultreq=''
+    if keep_old:
+        text=f'{resultreq}{sep_old}{text}'
+    newtext = encrypt_text(text, password)
     while resultreq != newtext:
         didweclick = False
         driver.switch_to.default_content()
